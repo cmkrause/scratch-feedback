@@ -9,9 +9,11 @@ import {
   rowScore,
   totalScore,
   maximum,
+  isComplete,
   fmt,
-} from "./core.js?v=1.1.0";
-import { exportPDF } from "./export.js?v=1.1.0";
+} from "./core.js?v=1.2.0";
+import { confirmationLeft } from "./ui.js?v=1.2.0";
+import { exportPDF } from "./export.js?v=1.2.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -142,6 +144,7 @@ let session = null,
   view = "creator",
   questionIndex = 0,
   pending = {},
+  feedback = {},
   routeGeneration = 0;
 function setView(title) {
   document.title = title + " · Scratch Feedback";
@@ -302,16 +305,15 @@ function startSession(c, token, preview = false, id = "preview") {
     preview,
     id,
     attempts: sanitizeAttempts(c, stored.attempts),
-    name: typeof stored.name === "string" ? stored.name.slice(0, 160) : "",
   };
   questionIndex = 0;
   pending = {};
+  feedback = {};
 }
 function persist() {
   if (!session.preview)
     save("sf.activity." + session.id, {
       attempts: session.attempts,
-      name: session.name,
     });
 }
 function heading() {
@@ -327,7 +329,7 @@ function renderActivity() {
   const completed = attempts.filter((a, i) => a.includes(c.answers[i])).length;
   app.innerHTML =
     heading() +
-    `<div class="summary">${!prefs.hideScores ? `<span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span>` : ""}<span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar"><button id="results">View results</button></div>`;
+    `<div class="summary">${!prefs.hideScores ? `<span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span>` : ""}<span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar"><button id="results" ${completed !== c.answers.length ? "disabled" : ""}>View results</button></div>${completed !== c.answers.length ? '<p class="muted results-hint">Complete every question to view results.</p>' : ""}`;
   wirePreview();
   const indices = prefs.single ? [questionIndex] : c.answers.map((_, i) => i);
   $("#questions").innerHTML = indices
@@ -343,15 +345,17 @@ function renderActivity() {
         },
       ).join(
         "",
-      )}</div>${!done ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button></div>` : ""}</section>`;
+      )}</div>${!done ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button></div>` : ""}<p class="question-feedback ${feedback[i] === undefined ? "" : feedback[i] ? "correct-text" : "wrong-text"}" id="feedback-${i}" role="status" aria-live="polite">${feedback[i] === undefined ? "" : esc(answerFeedback(i))}</p></section>`;
     })
     .join("");
+  positionConfirmations();
   for (const b of document.querySelectorAll("[data-question]"))
     b.onclick = () => selectChoice(+b.dataset.question, +b.dataset.choice);
   for (const b of document.querySelectorAll("[data-confirm]"))
     b.onclick = () =>
       commitChoice(+b.dataset.confirm, pending[+b.dataset.confirm]);
   $("#results").onclick = () => {
+    if (!isComplete(c, attempts)) return;
     if (session.preview) renderResults();
     else location.hash = `/results/${session.token}`;
   };
@@ -370,6 +374,43 @@ function renderActivity() {
     };
   }
 }
+function answerFeedback(i) {
+  const { c, attempts } = session;
+  return `Question ${c.startNumber + i}: ${feedback[i] ? "Correct." + (!prefs.hideScores ? " " + fmt(rowScore(c, attempts, i)) + " points." : "") : "Incorrect. Try another answer."}`;
+}
+function positionConfirm(i) {
+  const row = $("#confirm-" + i);
+  if (!row || row.hidden || pending[i] === undefined || !session) return;
+  const choice = document.querySelector(
+    `[data-question="${i}"][data-choice="${pending[i]}"]`,
+  );
+  if (!choice) return;
+  const button = row.querySelector("button"),
+    bounds = row.getBoundingClientRect(),
+    anchor = choice.getBoundingClientRect();
+  button.style.marginLeft =
+    confirmationLeft(
+      anchor.left - bounds.left,
+      anchor.width,
+      button.getBoundingClientRect().width,
+      bounds.width,
+      pending[i],
+      session.c.choiceCount,
+    ) + "px";
+}
+function positionConfirmations() {
+  if (view !== "activity") return;
+  for (const i of Object.keys(pending)) positionConfirm(Number(i));
+}
+new ResizeObserver(positionConfirmations).observe(app);
+document.fonts.ready.then(positionConfirmations);
+function requireCompletedActivity() {
+  if (isComplete(session.c, session.attempts)) return true;
+  if (!session.preview && location.hash.startsWith("#/results/"))
+    history.replaceState(null, "", "#/activity/" + session.token);
+  renderActivity();
+  return false;
+}
 function selectChoice(i, j) {
   if (prefs.confirm) {
     pending[i] = j;
@@ -382,6 +423,7 @@ function selectChoice(i, j) {
     const row = $("#confirm-" + i);
     row.hidden = false;
     row.querySelector("button").textContent = "Confirm " + letters[j];
+    positionConfirm(i);
   } else commitChoice(i, j);
 }
 function commitChoice(i, j) {
@@ -398,10 +440,14 @@ function commitChoice(i, j) {
   delete pending[i];
   persist();
   renderActivity();
-  const correct = j === c.answers[i];
-  toast(
-    `Question ${c.startNumber + i}: ${correct ? "Correct." + (!prefs.hideScores ? " " + fmt(rowScore(c, attempts, i)) + " points." : "") : "Incorrect. Try another answer."}`,
-  );
+  feedback[i] = j === c.answers[i];
+  const feedbackElement = $("#feedback-" + i);
+  feedbackElement.classList.toggle("correct-text", feedback[i]);
+  feedbackElement.classList.toggle("wrong-text", !feedback[i]);
+  requestAnimationFrame(() => {
+    if (feedbackElement.isConnected)
+      feedbackElement.textContent = answerFeedback(i);
+  });
   const section = $("#question-" + i);
   const target =
     section.querySelector("button:not(:disabled)") ||
@@ -410,12 +456,13 @@ function commitChoice(i, j) {
   target.focus({ preventScroll: true });
 }
 function renderResults() {
+  if (!requireCompletedActivity()) return;
   view = "results";
   const { c, attempts } = session;
   setView("Results");
   app.innerHTML =
     heading() +
-    `<div class="summary"><span>Total <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span><span class="muted">Results</span></div><label class="name-field">Student or group name <span class="muted">(optional)</span><input id="student-name" autocomplete="name" maxlength="160" value="${esc(session.name)}"></label><ul class="report-list">${c.answers
+    `<div class="summary"><span>Total <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span><span class="muted">Results</span></div><ul class="report-list">${c.answers
       .map((answer, i) => {
         const tried = attempts[i],
           done = tried.includes(answer);
@@ -425,10 +472,6 @@ function renderResults() {
         "",
       )}</ul><div class="toolbar"><button id="pdf">Download PDF</button><button id="back" class="secondary">Back to activity</button></div><p class="muted export-note">Results reflect attempts saved in this browser. PDFs use a white background.</p>`;
   wirePreview();
-  $("#student-name").oninput = (e) => {
-    session.name = e.target.value;
-    persist();
-  };
   $("#back").onclick = () => {
     if (session.preview) renderActivity();
     else location.hash = `/activity/${session.token}`;
@@ -436,6 +479,7 @@ function renderResults() {
   $("#pdf").onclick = () => runExport("pdf", exportPDF);
 }
 async function runExport(id, fn) {
+  if (!requireCompletedActivity()) return;
   const b = $("#" + id);
   b.disabled = true;
   const label = b.textContent;
@@ -500,8 +544,8 @@ window.addEventListener("storage", (e) => {
   if (session && !session.preview && e.key === "sf.activity." + session.id) {
     const stored = read(e.key, {});
     session.attempts = sanitizeAttempts(session.c, stored.attempts);
-    session.name = typeof stored.name === "string" ? stored.name : "";
     pending = {};
+    feedback = {};
     if (view === "activity") renderActivity();
     else if (view === "results") renderResults();
     toast("Progress updated from another tab.");

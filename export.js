@@ -1,9 +1,15 @@
-import { letters, rowScore, totalScore, maximum, fmt } from "./core.js?v=1.1.0";
+import {
+  letters,
+  rowScore,
+  totalScore,
+  maximum,
+  fmt,
+  isComplete,
+} from "./core.js?v=1.2.0";
 function report(session) {
-  const { c, attempts, name, id, preview } = session;
+  const { c, attempts, id, preview } = session;
   return {
     title: c.title,
-    name: name || "",
     id: preview ? "Preview" : id.slice(0, 10),
     date: new Date().toLocaleString(),
     score: `${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}`,
@@ -45,6 +51,8 @@ async function font64() {
   return fontPromise;
 }
 export async function exportPDF(session) {
+  if (!isComplete(session.c, session.attempts))
+    throw Error("Complete every question before downloading results.");
   if (!window.jspdf)
     throw Error("PDF library unavailable. Reload and try again.");
   const r = report(session),
@@ -80,7 +88,6 @@ export async function exportPDF(session) {
     y += 2;
   }
   text(r.title, 21);
-  if (r.name) text(r.name, 13);
   text(`Activity ${r.id} · ${r.date}`, 9, 90);
   text(`Total score: ${r.score}`, 16);
   if (r.description) text(r.description, 10, 70);

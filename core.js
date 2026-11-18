@@ -183,3 +183,7 @@ export function fmt(n) {
     maximumFractionDigits: 4,
   });
 }
+
+export function isComplete(c, attempts) {
+  return c.answers.every((answer, i) => attempts[i]?.includes(answer));
+}
