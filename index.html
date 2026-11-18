@@ -1,24 +1,89 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">
-<meta name="description" content="Simple scratch-card answer sheets with instant feedback and partial credit.">
-<title>Scratch Feedback</title>
-<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="styles.css">
-<script src="assets/vendor/jspdf.umd.min.js" defer></script>
-<script src="assets/vendor/qrcode.js" defer></script>
-<script type="module" src="app.js"></script>
-</head>
-<body>
-<header class="site-header"><a class="brand" href="#/">Scratch Feedback</a><button id="settings-open" class="quiet" aria-label="Open settings" title="Settings">Settings</button></header>
-<main id="app" tabindex="-1"></main>
-<div id="notice" role="status" aria-live="polite"></div>
-<dialog id="settings"><form method="dialog"><div class="section-heading"><h2>Settings</h2><button class="quiet" aria-label="Close settings">Close</button></div></form>
-<label>Appearance<select id="theme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-<label class="check"><input id="confirm-setting" type="checkbox">Confirm each answer</label>
-<label class="check"><input id="single-setting" type="checkbox">One question at a time</label>
-</dialog>
-<dialog id="share"><form method="dialog"><div class="section-heading"><h2>Share activity</h2><button class="quiet">Close</button></div></form><p>Students open this link to begin.</p><label>Activity link<textarea id="student-link" readonly rows="3"></textarea></label><button id="copy-student">Copy activity link</button><div id="qr" aria-label="Activity QR code"></div><p id="qr-note" class="muted"></p><details><summary>Keep a link for editing</summary><p class="muted">Changes create a new activity. Keep this link to reopen your answer key.</p><label>Edit link<textarea id="edit-link" readonly rows="3"></textarea></label><button id="copy-edit">Copy edit link</button></details></dialog>
-<noscript>This activity needs JavaScript enabled in your browser.</noscript>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="description"
+      content="Simple scratch-card answer sheets with instant feedback and partial credit."
+    />
+    <title>Scratch Feedback</title>
+    <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="assets/vendor/jspdf.umd.min.js" defer></script>
+    <script src="assets/vendor/qrcode.js" defer></script>
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#/">Scratch Feedback</a
+      ><button
+        id="settings-open"
+        class="quiet"
+        aria-label="Open settings"
+        title="Settings"
+      >
+        Settings
+      </button>
+    </header>
+    <main id="app" tabindex="-1"></main>
+    <div id="notice" role="status" aria-live="polite"></div>
+    <dialog id="settings">
+      <form method="dialog">
+        <div class="section-heading">
+          <h2>Settings</h2>
+          <button class="quiet" aria-label="Close settings">Close</button>
+        </div>
+      </form>
+      <label
+        >Appearance<select id="theme">
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select></label
+      >
+      <label class="check"
+        ><input id="confirm-setting" type="checkbox" />Confirm each
+        answer</label
+      >
+      <label class="check"
+        ><input id="single-setting" type="checkbox" />One question at a
+        time</label
+      >
+    </dialog>
+    <dialog id="share">
+      <form method="dialog">
+        <div class="section-heading">
+          <h2>Share activity</h2>
+          <button class="quiet">Close</button>
+        </div>
+      </form>
+      <p>Students open this link to begin.</p>
+      <label
+        >Activity link<textarea
+          id="student-link"
+          readonly
+          rows="3"
+        ></textarea></label
+      ><button id="copy-student">Copy activity link</button>
+      <div id="qr" aria-label="Activity QR code"></div>
+      <p id="qr-note" class="muted"></p>
+      <details>
+        <summary>Keep a link for editing</summary>
+        <p class="muted">
+          Changes create a new activity. Keep this link to reopen your answer
+          key.
+        </p>
+        <label
+          >Edit link<textarea
+            id="edit-link"
+            readonly
+            rows="3"
+          ></textarea></label
+        ><button id="copy-edit">Copy edit link</button>
+      </details>
+    </dialog>
+    <noscript>This activity needs JavaScript enabled in your browser.</noscript>
+  </body>
+</html>

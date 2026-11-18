@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  /><title>Responsive layout check</title
+  ><style>
+    body {
+      font-family: system-ui;
+      margin: 24px;
+      background: #eee;
+      color: #111;
+    }
+    button {
+      padding: 10px;
+      margin-right: 8px;
+    }
+    iframe {
+      display: block;
+      width: 390px;
+      height: 820px;
+      border: 1px solid #888;
+      background: white;
+      margin-top: 20px;
+      max-width: 100%;
+    }
+  </style>
+  <h1>Responsive layout check</h1>
+  <p>
+    Developer preview. Each frame width exercises the app’s responsive layout.
+  </p>
+  <button data-width="360">360 px</button
+  ><button data-width="390">390 px</button
+  ><button data-width="768">768 px</button
+  ><button data-width="1100">1100 px</button
+  ><iframe id="preview" src="../index.html" title="App preview"></iframe>
+  <script>
+    for (const button of document.querySelectorAll("button"))
+      button.onclick = () =>
+        (document.querySelector("iframe").style.width =
+          button.dataset.width + "px");
+  </script>
+</html>
