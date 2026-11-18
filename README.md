@@ -1,0 +1,29 @@
+# Scratch Feedback
+
+A minimal, mobile-friendly, browser-only answer sheet for instant feedback and partial credit. Independently written, inspired by Steven Clontz's [Scratchee](https://github.com/StevenClontz/scratchee); not affiliated with the original project.
+
+## Use
+
+Open the site to create an activity. Set 1–200 questions, 2–10 answer choices, starting number, points by successful attempt, and the complete key. Share the activity link or QR code; retain the edit link to revise it. Question text is supplied separately. Preview attempts are temporary.
+
+Students can confirm selections, switch between all questions and one-at-a-time, and choose system/light/dark appearance. Confirmed attempts are saved in this browser. Correct answers lock a question. There is no reset control. Results include attempts in order and can be exported as selectable-text PDF or PNG. Multi-page PNG exports are packaged in one ZIP download.
+
+## Hosting and development
+
+Static HTML/CSS/JavaScript: no build, database, external font service, or backend. GitHub Pages publishes `main` from the repository root. Asset paths work under a repository subdirectory. Serve over HTTPS (or localhost) for Web Crypto and clipboard access. Locally: `python3 -m http.server 8000`, then open localhost:8000. Run core regression checks with `npm test` (Node 22+).
+
+## Configuration links and privacy
+
+Version 1 links contain a normalized JSON configuration, optionally DEFLATE-compressed, encrypted using AES-256-GCM with a fresh random key and 96-bit IV, then Base64url encoded. The key is included in the URL fragment: this is obfuscation, not secrecy or instructor authentication. A knowledgeable visitor can recover or modify the key and configuration through developer tools. No correctness metadata is attached to unattempted answer buttons. Answer checking requires decrypted answers in JavaScript memory.
+
+Progress uses SHA-256 of the normalized configuration as its local storage identifier. Equivalent configurations share progress even when ciphertext differs; configuration edits create new identities. Appearance and display preferences are separate. Storage can be cleared or modified and is not synchronized across devices. Exports are student-generated, not verified submissions. Names and attempts stay in browser storage and downloads; the app sends no analytics or submissions. Hosting providers still receive ordinary page/asset requests. Do not store real exam configurations or student records in the repository.
+
+Keep the site URL and version 1 decoding support stable to preserve previously shared links. A host/origin change will not migrate local browser progress.
+
+## Third-party assets
+
+- Atkinson Hyperlegible Next by the Braille Institute / Applied Design Works, SIL Open Font License; see `assets/fonts/OFL.txt`. Static regular font derived from the variable font for PDF embedding.
+- jsPDF 3.0.4, MIT; see `assets/vendor/jsPDF-LICENSE.txt` and source header.
+- qrcode-generator 1.4.4 by Kazuhiko Arase, MIT; license included in source header.
+
+All dependencies are vendored to avoid third-party runtime requests.
