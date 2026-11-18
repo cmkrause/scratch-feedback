@@ -15,9 +15,9 @@ import {
   restoreAutomaticReveals,
   nextUnfinished,
   fmt,
-} from "./core.js?v=1.3.0";
-import { confirmationLeft } from "./ui.js?v=1.3.0";
-import { exportPDF } from "./export.js?v=1.3.0";
+} from "./core.js?v=1.3.1";
+import { confirmationLeft } from "./ui.js?v=1.3.1";
+import { exportPDF } from "./export.js?v=1.3.1";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -656,7 +656,7 @@ function renderResults() {
       })
       .join(
         "",
-      )}</ul><div class="toolbar"><button id="pdf">Download PDF</button><button id="back" class="secondary">Back to activity</button></div><p class="muted export-note">Results reflect attempts saved in this browser. PDFs use a white background.</p>`;
+      )}</ul><div class="toolbar"><button id="pdf">Download PDF</button><button id="back" class="secondary">Back to activity</button></div><p class="muted export-note">${session.preview ? "Practice results are not saved." : "Results reflect attempts saved in this browser."} PDFs use a white background.</p>`;
   wirePreview();
   $("#back").onclick = () => {
     if (session.preview) renderActivity();

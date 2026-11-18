@@ -5,7 +5,7 @@ import {
   maximum,
   fmt,
   isComplete,
-} from "./core.js?v=1.3.0";
+} from "./core.js?v=1.3.1";
 function report(session) {
   const { c, attempts, id, preview } = session;
   return {
@@ -103,7 +103,13 @@ export async function exportPDF(session) {
     doc.line(margin, y, width + margin, y);
     y += 7;
   }
-  text("Student-generated record of attempts saved in this browser.", 9, 100);
+  text(
+    session.preview
+      ? "Practice activity; attempts are not saved."
+      : "Student-generated record of attempts saved in this browser.",
+    9,
+    100,
+  );
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i);
