@@ -10,8 +10,8 @@ import {
   totalScore,
   maximum,
   fmt,
-} from "./core.js?v=1.0.1";
-import { exportPDF, exportPNG } from "./export.js?v=1.0.1";
+} from "./core.js?v=1.1.0";
+import { exportPDF } from "./export.js?v=1.1.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -51,6 +51,7 @@ let prefs = {
   theme: "system",
   confirm: true,
   single: false,
+  hideScores: false,
   ...read("sf.preferences", {}),
 };
 function theme() {
@@ -67,6 +68,7 @@ $("#settings-open").onclick = () => {
   $("#theme").value = prefs.theme;
   $("#confirm-setting").checked = prefs.confirm;
   $("#single-setting").checked = prefs.single;
+  $("#score-setting").checked = prefs.hideScores;
   $("#settings").showModal();
 };
 $("#theme").onchange = (e) => {
@@ -85,6 +87,16 @@ $("#single-setting").onchange = (e) => {
   save("sf.preferences", prefs);
   if (session && view === "activity") renderActivity();
 };
+$("#score-setting").onchange = (e) => {
+  prefs.hideScores = e.target.checked;
+  save("sf.preferences", prefs);
+  clearTimeout(toast.timer);
+  $("#notice").textContent = "";
+  if (session && view === "activity") renderActivity();
+};
+function feedbackSymbol(correct) {
+  return `<span class="feedback-symbol" aria-hidden="true">${correct ? "✓" : "×"}</span>`;
+}
 for (const d of document.querySelectorAll("dialog"))
   d.addEventListener("click", (e) => {
     if (e.target === d) {
@@ -315,19 +327,19 @@ function renderActivity() {
   const completed = attempts.filter((a, i) => a.includes(c.answers[i])).length;
   app.innerHTML =
     heading() +
-    `<div class="summary"><span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span><span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar"><button id="results">View results</button></div>`;
+    `<div class="summary">${!prefs.hideScores ? `<span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span>` : ""}<span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar"><button id="results">View results</button></div>`;
   wirePreview();
   const indices = prefs.single ? [questionIndex] : c.answers.map((_, i) => i);
   $("#questions").innerHTML = indices
     .map((i) => {
       const tried = attempts[i],
         done = tried.includes(c.answers[i]);
-      return `<section class="answer-row" id="question-${i}" aria-labelledby="qtitle-${i}"><div class="question-heading"><h2 id="qtitle-${i}">Question ${c.startNumber + i}</h2><span class="question-score">${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])} points</span></div><div class="choices" role="group" aria-label="Answers for question ${c.startNumber + i}">${Array.from(
+      return `<section class="answer-row" id="question-${i}" aria-labelledby="qtitle-${i}"><div class="question-heading"><h2 id="qtitle-${i}">Question ${c.startNumber + i}</h2>${!prefs.hideScores ? `<span class="question-score">${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])} points</span>` : ""}</div><div class="choices" role="group" aria-label="Answers for question ${c.startNumber + i}">${Array.from(
         { length: c.choiceCount },
         (_, j) => {
           const scratched = tried.includes(j),
             correct = scratched && j === c.answers[i];
-          return `<button class="choice ${scratched ? (correct ? "correct" : "wrong") : pending[i] === j ? "selected" : ""}" data-question="${i}" data-choice="${j}" ${done || scratched ? "disabled" : ""} ${!scratched ? `aria-pressed="${pending[i] === j}"` : ""} aria-label="${letters[j]}${scratched ? (correct ? ", Correct" : ", Incorrect") : ""}">${letters[j]}${scratched ? (correct ? " ✅" : " ❌") : ""}</button>`;
+          return `<button class="choice ${scratched ? (correct ? "correct" : "wrong") : pending[i] === j ? "selected" : ""}" data-question="${i}" data-choice="${j}" ${done || scratched ? "disabled" : ""} ${!scratched ? `aria-pressed="${pending[i] === j}"` : ""} aria-label="${letters[j]}${scratched ? (correct ? ", Correct" : ", Incorrect") : ""}">${letters[j]}${scratched ? " " + feedbackSymbol(correct) : ""}</button>`;
         },
       ).join(
         "",
@@ -388,7 +400,7 @@ function commitChoice(i, j) {
   renderActivity();
   const correct = j === c.answers[i];
   toast(
-    `Question ${c.startNumber + i}: ${correct ? "✅ Correct. " + fmt(rowScore(c, attempts, i)) + " points." : "❌ Incorrect. Try another answer."}`,
+    `Question ${c.startNumber + i}: ${correct ? "Correct." + (!prefs.hideScores ? " " + fmt(rowScore(c, attempts, i)) + " points." : "") : "Incorrect. Try another answer."}`,
   );
   const section = $("#question-" + i);
   const target =
@@ -407,11 +419,11 @@ function renderResults() {
       .map((answer, i) => {
         const tried = attempts[i],
           done = tried.includes(answer);
-        return `<li><strong>Q${c.startNumber + i}</strong><span class="attempts">${tried.length ? tried.map((a) => `<span class="${a === answer ? "correct-text" : "wrong-text"}">${letters[a]} ${a === answer ? "✅" : "❌"}</span>`).join(" → ") : "Unanswered"}${tried.length && !done ? " · Unfinished" : ""}</span><strong>${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])}</strong></li>`;
+        return `<li><strong>Q${c.startNumber + i}</strong><span class="attempts">${tried.length ? tried.map((a) => `<span class="${a === answer ? "correct-text" : "wrong-text"}">${letters[a]} ${feedbackSymbol(a === answer)}<span class="sr-only"> ${a === answer ? "Correct" : "Incorrect"}</span></span>`).join(" → ") : "Unanswered"}${tried.length && !done ? " · Unfinished" : ""}</span><strong>${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])}</strong></li>`;
       })
       .join(
         "",
-      )}</ul><div class="toolbar"><button id="pdf">Download PDF</button><button id="png" class="secondary">Download PNG</button><button id="back" class="secondary">Back to activity</button></div><p class="muted export-note">Results reflect attempts saved in this browser. Exports use a white background.</p>`;
+      )}</ul><div class="toolbar"><button id="pdf">Download PDF</button><button id="back" class="secondary">Back to activity</button></div><p class="muted export-note">Results reflect attempts saved in this browser. PDFs use a white background.</p>`;
   wirePreview();
   $("#student-name").oninput = (e) => {
     session.name = e.target.value;
@@ -422,7 +434,6 @@ function renderResults() {
     else location.hash = `/activity/${session.token}`;
   };
   $("#pdf").onclick = () => runExport("pdf", exportPDF);
-  $("#png").onclick = () => runExport("png", exportPNG);
 }
 async function runExport(id, fn) {
   const b = $("#" + id);

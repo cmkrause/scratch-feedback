@@ -6,7 +6,7 @@ A minimal, mobile-friendly, browser-only answer sheet for instant feedback and p
 
 Open the site to create an activity. Set 1–200 questions, 2–10 answer choices, starting number, points by successful attempt, and the complete key. Share the activity link or QR code; retain the edit link to revise it. Question text is supplied separately. Preview attempts are temporary.
 
-Students can confirm selections, switch between all questions and one-at-a-time, and choose system/light/dark appearance. Confirmed attempts are saved in this browser. Correct answers lock a question. There is no reset control. Results include attempts in order and can be exported as selectable-text PDF or PNG. Multi-page PNG exports are packaged in one ZIP download.
+Students can confirm selections, switch between all questions and one-at-a-time, choose system/light/dark appearance, and hide scores while answering. Hidden scores are omitted from the live total, question rows, and answer announcements; results and PDFs still include scoring. Confirmed attempts are saved in this browser. Correct answers lock a question. There is no reset control. Results include attempts in order and can be exported as selectable-text PDF. Correct/incorrect feedback uses color-inheriting text symbols (✓ / ×) and accessible text alternatives.
 
 ## Hosting and development
 

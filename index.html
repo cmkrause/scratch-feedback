@@ -10,10 +10,10 @@
     />
     <title>Scratch Feedback</title>
     <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="styles.css?v=1.0.1" />
+    <link rel="stylesheet" href="styles.css?v=1.1.0" />
     <script src="assets/vendor/jspdf.umd.min.js" defer></script>
     <script src="assets/vendor/qrcode.js" defer></script>
-    <script type="module" src="app.js?v=1.0.1"></script>
+    <script type="module" src="app.js?v=1.1.0"></script>
   </head>
   <body>
     <header class="site-header">
@@ -51,6 +51,13 @@
         ><input id="single-setting" type="checkbox" />One question at a
         time</label
       >
+      <label class="check"
+        ><input id="score-setting" type="checkbox" />Hide scores while
+        answering</label
+      >
+      <p class="muted setting-note">
+        Scores are still available in results and the PDF.
+      </p>
     </dialog>
     <dialog id="share">
       <form method="dialog">
