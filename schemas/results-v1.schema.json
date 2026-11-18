@@ -1,0 +1,227 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cmkrause.github.io/scratch-feedback/schemas/results-v1.schema.json",
+  "title": "Scratch Feedback results, version 1",
+  "description": "Machine-readable results embedded in a completed Scratch Feedback PDF.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "format": {
+      "const": "scratch-feedback-results"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "mode": {
+      "enum": ["activity", "example", "preview"]
+    },
+    "activity": {
+      "$ref": "#/$defs/activity"
+    },
+    "summary": {
+      "$ref": "#/$defs/summary"
+    },
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "$ref": "#/$defs/question"
+      }
+    }
+  },
+  "required": [
+    "format",
+    "schemaVersion",
+    "generatedAt",
+    "mode",
+    "activity",
+    "summary",
+    "questions"
+  ],
+  "$defs": {
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://[^#]+#/activity/[A-Za-z0-9_-]+$"
+        },
+        "configurationHash": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 2000
+        },
+        "startNumber": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 99999
+        },
+        "questionCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "choiceCount": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 10
+        },
+        "pointsByAttempt": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 10,
+          "items": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10000
+          }
+        }
+      },
+      "required": [
+        "url",
+        "configurationHash",
+        "title",
+        "description",
+        "startNumber",
+        "questionCount",
+        "choiceCount",
+        "pointsByAttempt"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "complete": {
+          "const": true
+        },
+        "completedQuestionCount": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 200
+        },
+        "pointsEarned": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 2000000
+        },
+        "pointsPossible": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 2000000
+        }
+      },
+      "required": [
+        "complete",
+        "completedQuestionCount",
+        "pointsEarned",
+        "pointsPossible"
+      ]
+    },
+    "question": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100198
+        },
+        "attempts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10,
+          "items": {
+            "$ref": "#/$defs/attempt"
+          },
+          "contains": {
+            "type": "object",
+            "properties": {
+              "correct": {
+                "const": true
+              }
+            },
+            "required": ["correct"]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        "automaticReveal": {
+          "type": "boolean"
+        },
+        "pointsEarned": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "pointsPossible": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 10000
+        }
+      },
+      "required": [
+        "number",
+        "attempts",
+        "automaticReveal",
+        "pointsEarned",
+        "pointsPossible"
+      ]
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "attempt": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        },
+        "choice": {
+          "type": "string",
+          "pattern": "^[A-J]$"
+        },
+        "correct": {
+          "type": "boolean"
+        },
+        "source": {
+          "enum": ["student", "automatic"]
+        }
+      },
+      "required": ["attempt", "choice", "correct", "source"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source": {
+                "const": "automatic"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "correct": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

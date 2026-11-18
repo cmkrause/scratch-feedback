@@ -24,7 +24,18 @@ test("all questions must find their key; zero-point completion counts", () => {
 test("PDF export also rejects an incomplete activity", async () => {
   const { exportPDF } = await import("../export.js");
   await assert.rejects(
-    exportPDF({ c: { answers: [1] }, attempts: [[]] }),
+    exportPDF({
+      c: {
+        version: 1,
+        title: "Incomplete",
+        description: "",
+        startNumber: 1,
+        choiceCount: 2,
+        points: [2, 0],
+        answers: [1],
+      },
+      attempts: [[]],
+    }),
     /Complete every question/,
   );
 });

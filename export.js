@@ -1,63 +1,30 @@
-import {
-  letters,
-  rowScore,
-  totalScore,
-  maximum,
-  fmt,
-  isComplete,
-} from "./core.js?v=1.4.0";
-function report(session) {
-  const { c, attempts, id, preview } = session;
-  return {
-    title: c.title,
-    id: session.example ? "Example" : preview ? "Preview" : id.slice(0, 10),
-    date: new Date().toLocaleString(),
-    score: `${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}`,
-    description: c.description,
-    rows: c.answers.map((answer, i) => ({
-      question: `Question ${c.startNumber + i}`,
-      attempts: attempts[i].length
-        ? attempts[i]
-            .map(
-              (a) =>
-                `${letters[a]} (${a === answer ? (session.autoRevealed?.has(i) ? "Correct, automatic reveal" : "Correct") : "Incorrect"})`,
-            )
-            .join(" → ") + (attempts[i].includes(answer) ? "" : " · Unfinished")
-        : "Unanswered",
-      points: `${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])}`,
-    })),
-  };
-}
-function filename(session) {
-  return (
-    (session.c.title
-      .replace(/[^a-z0-9]+/gi, "-")
-      .replace(/^-|-$/g, "")
-      .slice(0, 60) || "activity") + "-results"
-  );
-}
+import { fmt, isComplete } from "./core.js?v=1.5.0";
+import { buildResults, RESULTS_ATTACHMENT_NAME } from "./results.js?v=1.5.0";
+
 let fontPromise;
-async function font64() {
+async function fontBytes() {
   fontPromise ??= fetch("assets/fonts/atkinson-next-regular.ttf")
     .then((r) => {
       if (!r.ok) throw Error("Report font unavailable.");
       return r.arrayBuffer();
     })
-    .then((buffer) => {
-      let s = "";
-      for (const b of new Uint8Array(buffer)) s += String.fromCharCode(b);
-      return btoa(s);
+    .then((bytes) => new Uint8Array(bytes))
+    .catch((error) => {
+      fontPromise = undefined;
+      throw error;
     });
   return fontPromise;
 }
-export async function exportPDF(session) {
-  if (!isComplete(session.c, session.attempts))
-    throw Error("Complete every question before downloading results.");
-  if (!window.jspdf)
-    throw Error("PDF library unavailable. Reload and try again.");
-  const r = report(session),
-    doc = new window.jspdf.jsPDF({ unit: "mm", format: "a4" });
-  doc.addFileToVFS("Atkinson.ttf", await font64());
+function base64(bytes) {
+  let text = "";
+  for (const byte of bytes) text += String.fromCharCode(byte);
+  return btoa(text);
+}
+
+// PDF text and the embedded file both come exclusively from this results snapshot.
+export async function createResultsPdf(results, { jsPDF, PDFDocument, font }) {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  doc.addFileToVFS("Atkinson.ttf", base64(font));
   doc.addFont("Atkinson.ttf", "Atkinson", "normal");
   doc.setFont("Atkinson");
   let y = 20;
@@ -69,7 +36,7 @@ export async function exportPDF(session) {
     y = 20;
     doc.setFontSize(10);
     doc.setTextColor(90);
-    doc.text("Scratch Feedback · " + r.id, margin, y);
+    doc.text("Scratch Feedback", margin, y);
     y += 10;
   }
   function text(value, size = 11, color = 25) {
@@ -87,26 +54,37 @@ export async function exportPDF(session) {
     }
     y += 2;
   }
-  text(r.title, 21);
-  text(`Activity ${r.id} · ${r.date}`, 9, 90);
-  text(`Total score: ${r.score}`, 16);
-  if (r.description) text(r.description, 10, 70);
+  text(results.activity.title, 21);
+  text(new Date(results.generatedAt).toLocaleString(), 9, 90);
+  text(
+    `Total score: ${fmt(results.summary.pointsEarned)} / ${fmt(results.summary.pointsPossible)}`,
+    16,
+  );
+  if (results.activity.description) text(results.activity.description, 10, 70);
   y += 3;
-  for (const row of r.rows) {
+  for (const row of results.questions) {
+    const attempts = row.attempts
+      .map(
+        (a) =>
+          `${a.choice} (${a.correct ? (a.source === "automatic" ? "Correct, automatic reveal" : "Correct") : "Incorrect"})`,
+      )
+      .join(" > ");
     doc.setFontSize(11);
-    const lines = doc.splitTextToSize(row.attempts, width - 4);
-    const height = lines.length * 6 + 19;
+    const height = doc.splitTextToSize(attempts, width - 4).length * 6 + 19;
     if (y + height > bottom) newPage();
-    text(`${row.question}    ${row.points} points`, 12);
-    text(row.attempts.replaceAll(" → ", " > "), 11);
+    text(
+      `Question ${row.number}    ${fmt(row.pointsEarned)} / ${fmt(row.pointsPossible)} points`,
+      12,
+    );
+    text(attempts, 11);
     doc.setDrawColor(215);
     doc.line(margin, y, width + margin, y);
     y += 7;
   }
   text(
-    session.preview
-      ? "Practice activity; attempts are not saved."
-      : "Student-generated record of attempts saved in this browser.",
+    results.mode === "activity"
+      ? "Student-generated record of attempts saved in this browser."
+      : "Practice activity; attempts are not saved.",
     9,
     100,
   );
@@ -117,5 +95,46 @@ export async function exportPDF(session) {
     doc.setTextColor(100);
     doc.text(`${i} / ${pages}`, 192, 287, { align: "right" });
   }
-  doc.save(filename(session) + ".pdf");
+  const pdf = await PDFDocument.load(doc.output("arraybuffer"), {
+    updateMetadata: false,
+  });
+  const date = new Date(results.generatedAt);
+  await pdf.attach(
+    new TextEncoder().encode(JSON.stringify(results, null, 2) + "\n"),
+    RESULTS_ATTACHMENT_NAME,
+    {
+      mimeType: "application/json",
+      description:
+        "Machine-readable Scratch Feedback results, schema version 1",
+      creationDate: date,
+      modificationDate: date,
+    },
+  );
+  return pdf.save();
+}
+export async function exportPDF(session) {
+  if (!isComplete(session.c, session.attempts))
+    throw Error("Complete every question before downloading results.");
+  const results = await buildResults(session, { baseUrl: location.href });
+  if (!window.jspdf || !window.PDFLib)
+    throw Error("PDF libraries unavailable. Reload and try again.");
+  const bytes = await createResultsPdf(results, {
+    jsPDF: window.jspdf.jsPDF,
+    PDFDocument: window.PDFLib.PDFDocument,
+    font: await fontBytes(),
+  });
+  const url = URL.createObjectURL(
+    new Blob([bytes], { type: "application/pdf" }),
+  );
+  const link = document.createElement("a");
+  link.href = url;
+  link.download =
+    (results.activity.title
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || "activity") + "-results.pdf";
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }

@@ -15,9 +15,9 @@ import {
   restoreAutomaticReveals,
   nextUnfinished,
   fmt,
-} from "./core.js?v=1.4.0";
-import { confirmationLeft, activeConfirmation } from "./ui.js?v=1.4.0";
-import { exportPDF } from "./export.js?v=1.4.0";
+} from "./core.js?v=1.5.0";
+import { confirmationLeft, activeConfirmation } from "./ui.js?v=1.5.0";
+import { exportPDF } from "./export.js?v=1.5.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -368,7 +368,7 @@ function persist() {
     });
 }
 function heading() {
-  return `${session.example ? '<p class="eyebrow">Example activity · <a href="#/">Back to home</a></p>' : session.preview ? '<p class="preview-note">Preview · attempts here are not saved. <button class="quiet" id="back-editor">Back to editor</button></p>' : ""}<h1>${esc(session.c.title)}</h1>${session.c.description ? `<p class="description">${esc(session.c.description)}</p>` : ""}${session.example ? "" : `<div class="eyebrow">Activity ${session.id.slice(0, 10)}</div>`}`;
+  return `${session.example ? '<p class="eyebrow">Example activity · <a href="#/">Back to home</a></p>' : session.preview ? '<p class="preview-note">Preview · attempts here are not saved. <button class="quiet" id="back-editor">Back to editor</button></p>' : ""}<h1>${esc(session.c.title)}</h1>${session.c.description ? `<p class="description">${esc(session.c.description)}</p>` : ""}`;
 }
 function wirePreview() {
   if ($("#back-editor")) $("#back-editor").onclick = creator;
