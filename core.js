@@ -187,3 +187,34 @@ export function fmt(n) {
 export function isComplete(c, attempts) {
   return c.answers.every((answer, i) => attempts[i]?.includes(answer));
 }
+
+export function remainingAnswer(c, attempts, i) {
+  const tried = attempts[i] ?? [];
+  return !tried.includes(c.answers[i]) && tried.length === c.choiceCount - 1
+    ? c.answers[i]
+    : null;
+}
+export function revealRemaining(c, attempts, i) {
+  const answer = remainingAnswer(c, attempts, i);
+  if (answer !== null) attempts[i].push(answer);
+  return answer;
+}
+export function restoreAutomaticReveals(c, attempts, values) {
+  return new Set(
+    (Array.isArray(values) ? values : []).filter(
+      (i) =>
+        Number.isInteger(i) &&
+        i >= 0 &&
+        i < c.answers.length &&
+        attempts[i]?.length === c.choiceCount &&
+        attempts[i].at(-1) === c.answers[i],
+    ),
+  );
+}
+export function nextUnfinished(c, attempts, current = -1) {
+  for (let step = 1; step <= c.answers.length; step++) {
+    const i = (current + step + c.answers.length) % c.answers.length;
+    if (!attempts[i]?.includes(c.answers[i])) return i;
+  }
+  return -1;
+}

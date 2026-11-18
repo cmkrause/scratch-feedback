@@ -10,10 +10,14 @@ import {
   totalScore,
   maximum,
   isComplete,
+  remainingAnswer,
+  revealRemaining,
+  restoreAutomaticReveals,
+  nextUnfinished,
   fmt,
-} from "./core.js?v=1.2.0";
-import { confirmationLeft } from "./ui.js?v=1.2.0";
-import { exportPDF } from "./export.js?v=1.2.0";
+} from "./core.js?v=1.3.0";
+import { confirmationLeft } from "./ui.js?v=1.3.0";
+import { exportPDF } from "./export.js?v=1.3.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -145,11 +149,42 @@ let session = null,
   questionIndex = 0,
   pending = {},
   feedback = {},
-  routeGeneration = 0;
+  routeGeneration = 0,
+  navigationCursor = -1;
+const revealTimers = new Map(),
+  collapseTimers = new Map(),
+  holdOpen = new Set(),
+  expandedCompleted = new Set();
 function setView(title) {
   document.title = title + " · Scratch Feedback";
 }
+function landing() {
+  clearSessionTimers();
+  session = null;
+  view = "home";
+  setView("Instant feedback");
+  app.innerHTML = `<div class="landing"><p class="eyebrow">Simple answer sheets. Immediate feedback.</p><h1>Scratch Feedback</h1><p class="landing-intro">Try an answer. Learn from the feedback. Keep going.</p><p>Create a multiple-choice answer sheet with partial credit, then share it with one link. Students work through the questions and download their completed results.</p><div class="toolbar"><a class="button-link" href="#/create">Create an activity</a><a class="button-link secondary" href="#/example">Try an example</a></div><section class="landing-how"><h2>How it works</h2><ol><li><strong>Set up.</strong> Choose your answer key, numbering, and points for each attempt.</li><li><strong>Share.</strong> Give students the activity link or QR code alongside your questions.</li><li><strong>Learn.</strong> Students receive instant feedback and a PDF of their results when finished.</li></ol></section><p class="muted landing-note">No accounts required. Progress stays in the current browser.</p><a class="source-link" href="https://github.com/cmkrause/scratch-feedback">View the project on GitHub</a></div>`;
+}
+function example() {
+  startSession(
+    {
+      version: 1,
+      title: "Try Scratch Feedback",
+      description:
+        "Choose an answer for each question. Explore the feedback and settings as you go.",
+      startNumber: 1,
+      choiceCount: 4,
+      points: [6, 2, 1, 0],
+      answers: [1, 3, 0],
+    },
+    null,
+    true,
+  );
+  session.example = true;
+  renderActivity();
+}
 function creator() {
+  clearSessionTimers();
   view = "creator";
   session = null;
   setView("Create activity");
@@ -298,6 +333,7 @@ async function copy(selector) {
 $("#copy-student").onclick = () => copy("#student-link");
 $("#copy-edit").onclick = () => copy("#edit-link");
 function startSession(c, token, preview = false, id = "preview") {
+  clearSessionTimers();
   const stored = preview ? {} : read("sf.activity." + id, {});
   session = {
     c,
@@ -306,18 +342,26 @@ function startSession(c, token, preview = false, id = "preview") {
     id,
     attempts: sanitizeAttempts(c, stored.attempts),
   };
+  session.autoRevealed = restoreAutomaticReveals(
+    c,
+    session.attempts,
+    stored.autoRevealed,
+  );
   questionIndex = 0;
+  navigationCursor = -1;
   pending = {};
   feedback = {};
+  for (const i of session.autoRevealed) feedback[i] = "auto";
 }
 function persist() {
   if (!session.preview)
     save("sf.activity." + session.id, {
       attempts: session.attempts,
+      autoRevealed: Array.from(session.autoRevealed),
     });
 }
 function heading() {
-  return `${session.preview ? '<p class="preview-note">Preview · attempts here are not saved. <button class="quiet" id="back-editor">Back to editor</button></p>' : ""}<h1>${esc(session.c.title)}</h1>${session.c.description ? `<p class="description">${esc(session.c.description)}</p>` : ""}<div class="eyebrow">Activity ${session.id.slice(0, 10)}</div>`;
+  return `${session.example ? '<p class="eyebrow">Example activity · <a href="#/">Back to home</a></p>' : session.preview ? '<p class="preview-note">Preview · attempts here are not saved. <button class="quiet" id="back-editor">Back to editor</button></p>' : ""}<h1>${esc(session.c.title)}</h1>${session.c.description ? `<p class="description">${esc(session.c.description)}</p>` : ""}${session.example ? "" : `<div class="eyebrow">Activity ${session.id.slice(0, 10)}</div>`}`;
 }
 function wirePreview() {
   if ($("#back-editor")) $("#back-editor").onclick = creator;
@@ -325,27 +369,35 @@ function wirePreview() {
 function renderActivity() {
   view = "activity";
   const { c, attempts } = session;
+  // Also finish eligible questions restored from a previous visit or an older app version.
+  c.answers.forEach((_, i) => {
+    if (remainingAnswer(c, attempts, i) !== null) scheduleReveal(i);
+  });
   setView(c.title);
   const completed = attempts.filter((a, i) => a.includes(c.answers[i])).length;
   app.innerHTML =
     heading() +
-    `<div class="summary">${!prefs.hideScores ? `<span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span>` : ""}<span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar"><button id="results" ${completed !== c.answers.length ? "disabled" : ""}>View results</button></div>${completed !== c.answers.length ? '<p class="muted results-hint">Complete every question to view results.</p>' : ""}`;
+    `<div class="summary">${!prefs.hideScores ? `<span>Score <strong class="score">${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}</strong></span>` : ""}<span class="muted">${completed} / ${c.answers.length} complete</span></div><div id="questions"></div>${prefs.single ? `<nav class="pagination" aria-label="Question navigation"><button class="secondary" id="previous" ${questionIndex === 0 ? "disabled" : ""}>Previous</button><span>Question ${c.startNumber + questionIndex}<br>${questionIndex + 1} of ${c.answers.length}</span><button class="secondary" id="next" ${questionIndex === c.answers.length - 1 ? "disabled" : ""}>Next</button></nav>` : ""}<div class="toolbar">${completed !== c.answers.length ? '<button class="secondary" id="unfinished">Go to next unfinished question</button>' : ""}<button id="results" ${completed !== c.answers.length ? "disabled" : ""}>View results</button></div>${completed !== c.answers.length ? '<p class="muted results-hint">Complete every question to view results.</p>' : ""}`;
   wirePreview();
   const indices = prefs.single ? [questionIndex] : c.answers.map((_, i) => i);
   $("#questions").innerHTML = indices
     .map((i) => {
       const tried = attempts[i],
         done = tried.includes(c.answers[i]);
-      return `<section class="answer-row" id="question-${i}" aria-labelledby="qtitle-${i}"><div class="question-heading"><h2 id="qtitle-${i}">Question ${c.startNumber + i}</h2>${!prefs.hideScores ? `<span class="question-score">${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])} points</span>` : ""}</div><div class="choices" role="group" aria-label="Answers for question ${c.startNumber + i}">${Array.from(
+      const collapsed =
+        done && !prefs.single && !holdOpen.has(i) && !expandedCompleted.has(i);
+      const revealing = remainingAnswer(c, attempts, i) !== null;
+      const label = `Question ${c.startNumber + i}`;
+      return `<section class="answer-row ${collapsed ? "collapsed" : ""}" id="question-${i}" aria-labelledby="qtitle-${i}"><div class="question-heading"><h2 id="qtitle-${i}">${done && !prefs.single ? `<button class="question-toggle" data-toggle="${i}" aria-expanded="${!collapsed}" aria-controls="qbody-${i}"><span>${label}</span><span class="completion-label">${feedbackSymbol(true)} Complete</span></button>` : label}</h2>${!prefs.hideScores ? `<span class="question-score">${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])} points</span>` : ""}</div><div id="qbody-${i}" ${collapsed ? "hidden" : ""}><div class="choices" role="group" aria-label="Answers for question ${c.startNumber + i}">${Array.from(
         { length: c.choiceCount },
         (_, j) => {
           const scratched = tried.includes(j),
             correct = scratched && j === c.answers[i];
-          return `<button class="choice ${scratched ? (correct ? "correct" : "wrong") : pending[i] === j ? "selected" : ""}" data-question="${i}" data-choice="${j}" ${done || scratched ? "disabled" : ""} ${!scratched ? `aria-pressed="${pending[i] === j}"` : ""} aria-label="${letters[j]}${scratched ? (correct ? ", Correct" : ", Incorrect") : ""}">${letters[j]}${scratched ? " " + feedbackSymbol(correct) : ""}</button>`;
+          return `<button class="choice ${scratched ? (correct ? "correct" : "wrong") : pending[i] === j ? "selected" : ""} ${correct && session.autoRevealed.has(i) && holdOpen.has(i) ? "auto-reveal" : ""}" data-question="${i}" data-choice="${j}" ${done || scratched || revealing ? "disabled" : ""} ${!scratched ? `aria-pressed="${pending[i] === j}"` : ""} aria-label="${letters[j]}${scratched ? (correct ? ", Correct" : ", Incorrect") : ""}">${letters[j]}${scratched ? " " + feedbackSymbol(correct) : ""}</button>`;
         },
       ).join(
         "",
-      )}</div>${!done ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button></div>` : ""}<p class="question-feedback ${feedback[i] === undefined ? "" : feedback[i] ? "correct-text" : "wrong-text"}" id="feedback-${i}" role="status" aria-live="polite">${feedback[i] === undefined ? "" : esc(answerFeedback(i))}</p></section>`;
+      )}</div>${!done && !revealing ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button></div>` : ""}<p class="question-feedback ${feedback[i] === undefined ? "" : feedback[i] ? "correct-text" : "wrong-text"}" id="feedback-${i}" role="status" aria-live="polite">${feedback[i] === undefined ? "" : esc(answerFeedback(i))}</p></div></section>`;
     })
     .join("");
   positionConfirmations();
@@ -354,30 +406,165 @@ function renderActivity() {
   for (const b of document.querySelectorAll("[data-confirm]"))
     b.onclick = () =>
       commitChoice(+b.dataset.confirm, pending[+b.dataset.confirm]);
+  for (const b of document.querySelectorAll("[data-toggle]"))
+    b.onclick = () => {
+      const i = +b.dataset.toggle,
+        wasExpanded = b.getAttribute("aria-expanded") === "true";
+      clearTimeout(collapseTimers.get(i));
+      collapseTimers.delete(i);
+      holdOpen.delete(i);
+      if (wasExpanded) expandedCompleted.delete(i);
+      else expandedCompleted.add(i);
+      renderActivityStable();
+      document
+        .querySelector(`[data-toggle="${i}"]`)
+        ?.focus({ preventScroll: true });
+    };
   $("#results").onclick = () => {
     if (!isComplete(c, attempts)) return;
     if (session.preview) renderResults();
     else location.hash = `/results/${session.token}`;
   };
+  if ($("#unfinished"))
+    $("#unfinished").onclick = () => {
+      const i = nextUnfinished(c, attempts, navigationCursor);
+      if (i < 0) return;
+      navigationCursor = i;
+      questionIndex = i;
+      if (prefs.single) renderActivity();
+      const target = $("#qtitle-" + i);
+      target.setAttribute("tabindex", "-1");
+      target.scrollIntoView({
+        block: "center",
+        behavior: matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "instant"
+          : "smooth",
+      });
+      target.focus({ preventScroll: true });
+    };
   if (prefs.single) {
     $("#previous").onclick = () => {
       questionIndex--;
+      navigationCursor = questionIndex;
       renderActivity();
-      $("#qtitle-" + questionIndex).setAttribute("tabindex", "-1");
-      $("#qtitle-" + questionIndex).focus();
+      focusQuestion(questionIndex);
     };
     $("#next").onclick = () => {
       questionIndex++;
+      navigationCursor = questionIndex;
       renderActivity();
-      $("#qtitle-" + questionIndex).setAttribute("tabindex", "-1");
-      $("#qtitle-" + questionIndex).focus();
+      focusQuestion(questionIndex);
     };
   }
 }
+function focusQuestion(i) {
+  const target = $("#qtitle-" + i);
+  if (target) {
+    target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }
+}
+function renderActivityStable() {
+  const rows = Array.from(document.querySelectorAll(".answer-row"));
+  const anchor =
+    rows.find((el) => el.getBoundingClientRect().top >= 0) ??
+    rows.find((el) => el.getBoundingClientRect().bottom > 0);
+  const top = anchor?.getBoundingClientRect().top,
+    id = anchor?.id;
+  const active = document.activeElement;
+  const question = active?.dataset.question,
+    choice = active?.dataset.choice,
+    confirm = active?.dataset.confirm,
+    toggle = active?.dataset.toggle,
+    focusId = active?.id;
+  renderActivity();
+  if (id && $("#" + id))
+    window.scrollBy(0, $("#" + id).getBoundingClientRect().top - top);
+  const selector =
+    question !== undefined
+      ? `[data-question="${question}"][data-choice="${choice}"]`
+      : confirm !== undefined
+        ? `[data-confirm="${confirm}"]`
+        : toggle !== undefined
+          ? `[data-toggle="${toggle}"]`
+          : focusId
+            ? "#" + CSS.escape(focusId)
+            : null;
+  const target = selector ? document.querySelector(selector) : null;
+  if (target && !target.disabled && target.getClientRects().length) {
+    if (!target.matches("button, a[href], input, select, textarea, [tabindex]"))
+      target.setAttribute("tabindex", "-1");
+    target.focus({ preventScroll: true });
+  }
+}
+function clearSessionTimers() {
+  for (const timer of revealTimers.values()) clearTimeout(timer);
+  for (const timer of collapseTimers.values()) clearTimeout(timer);
+  revealTimers.clear();
+  collapseTimers.clear();
+  holdOpen.clear();
+  expandedCompleted.clear();
+}
+function keepCompletedOpen(i) {
+  const owner = session;
+  holdOpen.add(i);
+  expandedCompleted.delete(i);
+  clearTimeout(collapseTimers.get(i));
+  collapseTimers.set(
+    i,
+    setTimeout(() => {
+      collapseTimers.delete(i);
+      if (session !== owner) return;
+      holdOpen.delete(i);
+      if (view === "activity" && !prefs.single) renderActivityStable();
+    }, 2000),
+  );
+}
+function scheduleReveal(i) {
+  if (revealTimers.has(i)) return;
+  const owner = session;
+  feedback[i] = false;
+  revealTimers.set(
+    i,
+    setTimeout(() => {
+      revealTimers.delete(i);
+      if (
+        session !== owner ||
+        revealRemaining(session.c, session.attempts, i) === null
+      )
+        return;
+      session.autoRevealed.add(i);
+      feedback[i] = "auto";
+      delete pending[i];
+      keepCompletedOpen(i);
+      persist();
+      if (view === "activity") {
+        renderActivityStable();
+        announceFeedback(i);
+      }
+    }, 1000),
+  );
+}
 function answerFeedback(i) {
   const { c, attempts } = session;
-  return `Question ${c.startNumber + i}: ${feedback[i] ? "Correct." + (!prefs.hideScores ? " " + fmt(rowScore(c, attempts, i)) + " points." : "") : "Incorrect. Try another answer."}`;
+  const points = !prefs.hideScores
+    ? ` ${fmt(rowScore(c, attempts, i))} points.`
+    : "";
+  if (feedback[i] === "auto")
+    return `${letters[c.answers[i]]} revealed automatically—the only remaining answer.${points}`;
+  if (remainingAnswer(c, attempts, i) !== null)
+    return `Question ${c.startNumber + i}: Incorrect. Only one choice remains.`;
+  return `Question ${c.startNumber + i}: ${feedback[i] ? "Correct." + points : "Incorrect. Try another answer."}`;
 }
+function announceFeedback(i) {
+  const element = $("#feedback-" + i);
+  if (!element) return;
+  element.textContent = "";
+  requestAnimationFrame(() => {
+    if (element.isConnected) element.textContent = answerFeedback(i);
+  });
+}
+
 function positionConfirm(i) {
   const row = $("#confirm-" + i);
   if (!row || row.hidden || pending[i] === undefined || !session) return;
@@ -412,6 +599,8 @@ function requireCompletedActivity() {
   return false;
 }
 function selectChoice(i, j) {
+  if (remainingAnswer(session.c, session.attempts, i) !== null) return;
+  navigationCursor = i;
   if (prefs.confirm) {
     pending[i] = j;
     const section = $("#question-" + i);
@@ -433,21 +622,18 @@ function commitChoice(i, j) {
     j < 0 ||
     j >= c.choiceCount ||
     attempts[i].includes(j) ||
-    attempts[i].includes(c.answers[i])
+    attempts[i].includes(c.answers[i]) ||
+    remainingAnswer(c, attempts, i) !== null
   )
     return;
   attempts[i].push(j);
+  navigationCursor = i;
   delete pending[i];
+  feedback[i] = j === c.answers[i];
+  if (feedback[i]) keepCompletedOpen(i);
   persist();
   renderActivity();
-  feedback[i] = j === c.answers[i];
-  const feedbackElement = $("#feedback-" + i);
-  feedbackElement.classList.toggle("correct-text", feedback[i]);
-  feedbackElement.classList.toggle("wrong-text", !feedback[i]);
-  requestAnimationFrame(() => {
-    if (feedbackElement.isConnected)
-      feedbackElement.textContent = answerFeedback(i);
-  });
+  announceFeedback(i);
   const section = $("#question-" + i);
   const target =
     section.querySelector("button:not(:disabled)") ||
@@ -466,7 +652,7 @@ function renderResults() {
       .map((answer, i) => {
         const tried = attempts[i],
           done = tried.includes(answer);
-        return `<li><strong>Q${c.startNumber + i}</strong><span class="attempts">${tried.length ? tried.map((a) => `<span class="${a === answer ? "correct-text" : "wrong-text"}">${letters[a]} ${feedbackSymbol(a === answer)}<span class="sr-only"> ${a === answer ? "Correct" : "Incorrect"}</span></span>`).join(" → ") : "Unanswered"}${tried.length && !done ? " · Unfinished" : ""}</span><strong>${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])}</strong></li>`;
+        return `<li><strong>Q${c.startNumber + i}</strong><span class="attempts">${tried.length ? tried.map((a) => `<span class="${a === answer ? "correct-text" : "wrong-text"}">${letters[a]} ${feedbackSymbol(a === answer)}<span class="sr-only"> ${a === answer ? "Correct" : "Incorrect"}</span>${a === answer && session.autoRevealed.has(i) ? ' <span class="auto-label">(automatic reveal)</span>' : ""}</span>`).join(" → ") : "Unanswered"}${tried.length && !done ? " · Unfinished" : ""}</span><strong>${fmt(rowScore(c, attempts, i))} / ${fmt(c.points[0])}</strong></li>`;
       })
       .join(
         "",
@@ -498,7 +684,15 @@ async function route() {
   const generation = ++routeGeneration;
   const hash = location.hash.slice(1) || "/";
   if (hash === "/") {
+    landing();
+    return;
+  }
+  if (hash === "/create") {
     creator();
+    return;
+  }
+  if (hash === "/example") {
+    example();
     return;
   }
   const match = hash.match(/^\/(activity|results|edit)\/([\w-]+)$/);
@@ -534,18 +728,25 @@ async function route() {
   }
 }
 function showError(message) {
+  clearSessionTimers();
   session = null;
   view = "error";
   setView("Unable to open activity");
-  app.innerHTML = `<h1>Unable to open activity</h1><p role="alert">${esc(message)}</p><a href="#/">Create an activity</a>`;
+  app.innerHTML = `<h1>Unable to open activity</h1><p role="alert">${esc(message)}</p><a href="#/create">Create an activity</a>`;
 }
 window.addEventListener("hashchange", route);
 window.addEventListener("storage", (e) => {
   if (session && !session.preview && e.key === "sf.activity." + session.id) {
     const stored = read(e.key, {});
     session.attempts = sanitizeAttempts(session.c, stored.attempts);
+    session.autoRevealed = restoreAutomaticReveals(
+      session.c,
+      session.attempts,
+      stored.autoRevealed,
+    );
     pending = {};
     feedback = {};
+    for (const i of session.autoRevealed) feedback[i] = "auto";
     if (view === "activity") renderActivity();
     else if (view === "results") renderResults();
     toast("Progress updated from another tab.");

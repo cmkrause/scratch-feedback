@@ -461,3 +461,116 @@ details {
   font-size: 0.9rem;
   margin-top: 0.65rem;
 }
+
+.button-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.button-link.secondary {
+  background: transparent;
+  color: var(--text);
+  border-color: var(--line);
+}
+.landing {
+  max-width: 650px;
+}
+.landing h1 {
+  font-size: clamp(2.3rem, 8vw, 3.5rem);
+}
+.landing-intro {
+  font-size: 1.3rem;
+  line-height: 1.4;
+  margin: 1rem 0;
+}
+.landing-how {
+  margin: 2.5rem 0 1.8rem;
+  border-top: 1px solid var(--line);
+  padding-top: 1.5rem;
+}
+.landing-how ol {
+  padding-left: 1.4rem;
+}
+.landing-how li {
+  padding-left: 0.25rem;
+  margin: 0.8rem 0;
+}
+.landing-note,
+.source-link {
+  font-size: 0.95rem;
+}
+.question-heading h2 {
+  flex: 1;
+  min-width: 0;
+}
+.question-score {
+  white-space: nowrap;
+}
+.question-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  font-size: inherit;
+}
+.completion-label {
+  color: var(--correct);
+  font-size: 0.95rem;
+  font-weight: 400;
+}
+.answer-row.collapsed {
+  padding: 0.55rem 0;
+}
+.question-toggle::after {
+  content: "−";
+  color: var(--muted);
+  margin-left: auto;
+  padding-right: 0.35rem;
+  font-size: 1rem;
+}
+.question-toggle[aria-expanded="false"]::after {
+  content: "+";
+}
+.auto-label {
+  font-size: 0.9rem;
+}
+.choice.auto-reveal {
+  animation: reveal-answer 0.35s ease-out;
+}
+@keyframes reveal-answer {
+  from {
+    background-color: var(--surface);
+    color: var(--text);
+  }
+  to {
+    background-color: var(--correct-bg);
+    color: var(--correct);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .choice.auto-reveal {
+    animation: none;
+  }
+}
+@media (max-width: 560px) {
+  .landing .toolbar > a {
+    flex: 1;
+  }
+  .question-toggle {
+    gap: 0.4rem;
+  }
+}

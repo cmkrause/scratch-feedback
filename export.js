@@ -5,12 +5,12 @@ import {
   maximum,
   fmt,
   isComplete,
-} from "./core.js?v=1.2.0";
+} from "./core.js?v=1.3.0";
 function report(session) {
   const { c, attempts, id, preview } = session;
   return {
     title: c.title,
-    id: preview ? "Preview" : id.slice(0, 10),
+    id: session.example ? "Example" : preview ? "Preview" : id.slice(0, 10),
     date: new Date().toLocaleString(),
     score: `${fmt(totalScore(c, attempts))} / ${fmt(maximum(c))}`,
     description: c.description,
@@ -20,7 +20,7 @@ function report(session) {
         ? attempts[i]
             .map(
               (a) =>
-                `${letters[a]} (${a === answer ? "Correct" : "Incorrect"})`,
+                `${letters[a]} (${a === answer ? (session.autoRevealed?.has(i) ? "Correct, automatic reveal" : "Correct") : "Incorrect"})`,
             )
             .join(" → ") + (attempts[i].includes(answer) ? "" : " · Unfinished")
         : "Unanswered",
