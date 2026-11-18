@@ -10,7 +10,9 @@ Students can confirm selections, switch between all questions and one-at-a-time,
 
 ## Hosting and development
 
-Static HTML/CSS/JavaScript: no build, database, external font service, or backend. GitHub Pages publishes `main` from the repository root. Asset paths work under a repository subdirectory. Serve over HTTPS (or localhost) for Web Crypto and clipboard access. Locally: `python3 -m http.server 8000`, then open localhost:8000. Run core regression checks with `npm test` (Node 22+).
+Static HTML/CSS/JavaScript: no build, database, external font service, or backend. GitHub Pages publishes `main` from the repository root. Asset paths work under a repository subdirectory. When changing JavaScript or CSS, bump the asset version in `index.html` and module imports together so browsers load matching files. The developer preview at `tests/responsive.html` exercises phone and tablet widths.
+
+Serve over HTTPS (or localhost) for Web Crypto and clipboard access. Locally: `python3 -m http.server 8000`, then open localhost:8000. Run core regression checks with `npm test` (Node 22+).
 
 ## Configuration links and privacy
 

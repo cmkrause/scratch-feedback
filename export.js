@@ -1,4 +1,4 @@
-import { letters, rowScore, totalScore, maximum, fmt } from "./core.js";
+import { letters, rowScore, totalScore, maximum, fmt } from "./core.js?v=1.0.1";
 function report(session) {
   const { c, attempts, name, id, preview } = session;
   return {

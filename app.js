@@ -10,8 +10,8 @@ import {
   totalScore,
   maximum,
   fmt,
-} from "./core.js";
-import { exportPDF, exportPNG } from "./export.js";
+} from "./core.js?v=1.0.1";
+import { exportPDF, exportPNG } from "./export.js?v=1.0.1";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
