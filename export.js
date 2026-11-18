@@ -5,7 +5,7 @@ import {
   maximum,
   fmt,
   isComplete,
-} from "./core.js?v=1.3.1";
+} from "./core.js?v=1.4.0";
 function report(session) {
   const { c, attempts, id, preview } = session;
   return {

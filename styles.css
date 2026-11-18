@@ -574,3 +574,16 @@ details {
     gap: 0.4rem;
   }
 }
+
+.confirm-row {
+  position: relative;
+}
+.cancel-selection {
+  position: absolute;
+  top: 0;
+  font-weight: 400;
+  padding-inline: 0.6rem;
+}
+.choice.confirmation-locked:disabled {
+  opacity: 0.45;
+}

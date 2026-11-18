@@ -15,9 +15,9 @@ import {
   restoreAutomaticReveals,
   nextUnfinished,
   fmt,
-} from "./core.js?v=1.3.1";
-import { confirmationLeft } from "./ui.js?v=1.3.1";
-import { exportPDF } from "./export.js?v=1.3.1";
+} from "./core.js?v=1.4.0";
+import { confirmationLeft, activeConfirmation } from "./ui.js?v=1.4.0";
+import { exportPDF } from "./export.js?v=1.4.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>
@@ -73,6 +73,7 @@ matchMedia("(prefers-color-scheme: dark)").addEventListener("change", theme);
 $("#settings-open").onclick = () => {
   $("#theme").value = prefs.theme;
   $("#confirm-setting").checked = prefs.confirm;
+  $("#confirm-setting").disabled = activeConfirmation(pending) !== null;
   $("#single-setting").checked = prefs.single;
   $("#score-setting").checked = prefs.hideScores;
   $("#settings").showModal();
@@ -83,6 +84,10 @@ $("#theme").onchange = (e) => {
   theme();
 };
 $("#confirm-setting").onchange = (e) => {
+  if (activeConfirmation(pending) !== null) {
+    e.target.checked = prefs.confirm;
+    return;
+  }
   prefs.confirm = e.target.checked;
   save("sf.preferences", prefs);
   pending = {};
@@ -90,6 +95,8 @@ $("#confirm-setting").onchange = (e) => {
 };
 $("#single-setting").onchange = (e) => {
   prefs.single = e.target.checked;
+  const owner = activeConfirmation(pending);
+  if (owner !== null) questionIndex = owner;
   save("sf.preferences", prefs);
   if (session && view === "activity") renderActivity();
 };
@@ -397,7 +404,7 @@ function renderActivity() {
         },
       ).join(
         "",
-      )}</div>${!done && !revealing ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button></div>` : ""}<p class="question-feedback ${feedback[i] === undefined ? "" : feedback[i] ? "correct-text" : "wrong-text"}" id="feedback-${i}" role="status" aria-live="polite">${feedback[i] === undefined ? "" : esc(answerFeedback(i))}</p></div></section>`;
+      )}</div>${!done && !revealing ? `<div class="confirm-row" id="confirm-${i}" ${pending[i] === undefined ? "hidden" : ""}><button data-confirm="${i}">Confirm ${letters[pending[i]] ?? ""}</button><button class="quiet cancel-selection" data-cancel="${i}" aria-label="Cancel selection for question ${c.startNumber + i}">Cancel</button></div>` : ""}<p class="question-feedback ${feedback[i] === undefined ? "" : feedback[i] ? "correct-text" : "wrong-text"}" id="feedback-${i}" role="status" aria-live="polite">${feedback[i] === undefined ? "" : esc(answerFeedback(i))}</p></div></section>`;
     })
     .join("");
   positionConfirmations();
@@ -406,6 +413,8 @@ function renderActivity() {
   for (const b of document.querySelectorAll("[data-confirm]"))
     b.onclick = () =>
       commitChoice(+b.dataset.confirm, pending[+b.dataset.confirm]);
+  for (const b of document.querySelectorAll("[data-cancel]"))
+    b.onclick = () => cancelSelection(+b.dataset.cancel);
   for (const b of document.querySelectorAll("[data-toggle]"))
     b.onclick = () => {
       const i = +b.dataset.toggle,
@@ -427,6 +436,7 @@ function renderActivity() {
   };
   if ($("#unfinished"))
     $("#unfinished").onclick = () => {
+      if (activeConfirmation(pending) !== null) return;
       const i = nextUnfinished(c, attempts, navigationCursor);
       if (i < 0) return;
       navigationCursor = i;
@@ -444,18 +454,56 @@ function renderActivity() {
     };
   if (prefs.single) {
     $("#previous").onclick = () => {
+      if (activeConfirmation(pending) !== null) return;
       questionIndex--;
       navigationCursor = questionIndex;
       renderActivity();
       focusQuestion(questionIndex);
     };
     $("#next").onclick = () => {
+      if (activeConfirmation(pending) !== null) return;
       questionIndex++;
       navigationCursor = questionIndex;
       renderActivity();
       focusQuestion(questionIndex);
     };
   }
+  syncConfirmationLock();
+}
+function syncConfirmationLock() {
+  if (!session || view !== "activity") return;
+  const owner = activeConfirmation(pending),
+    { c, attempts } = session;
+  for (const b of document.querySelectorAll("[data-question]")) {
+    const i = +b.dataset.question,
+      j = +b.dataset.choice;
+    const alreadyLocked =
+      attempts[i].includes(c.answers[i]) ||
+      attempts[i].includes(j) ||
+      remainingAnswer(c, attempts, i) !== null;
+    const confirmationLocked = owner !== null && i !== owner;
+    b.disabled = alreadyLocked || confirmationLocked;
+    b.classList.toggle(
+      "confirmation-locked",
+      confirmationLocked && !alreadyLocked,
+    );
+  }
+  if ($("#previous"))
+    $("#previous").disabled = owner !== null || questionIndex === 0;
+  if ($("#next"))
+    $("#next").disabled =
+      owner !== null || questionIndex === c.answers.length - 1;
+  if ($("#unfinished")) $("#unfinished").disabled = owner !== null;
+  $("#confirm-setting").disabled = owner !== null;
+}
+function cancelSelection(i) {
+  if (activeConfirmation(pending) !== i) return;
+  const selected = pending[i];
+  delete pending[i];
+  renderActivityStable();
+  document
+    .querySelector(`[data-question="${i}"][data-choice="${selected}"]`)
+    ?.focus({ preventScroll: true });
 }
 function focusQuestion(i) {
   const target = $("#qtitle-" + i);
@@ -498,6 +546,7 @@ function renderActivityStable() {
   }
 }
 function clearSessionTimers() {
+  pending = {};
   for (const timer of revealTimers.values()) clearTimeout(timer);
   for (const timer of collapseTimers.values()) clearTimeout(timer);
   revealTimers.clear();
@@ -584,6 +633,24 @@ function positionConfirm(i) {
       pending[i],
       session.c.choiceCount,
     ) + "px";
+  const cancel = row.querySelector("[data-cancel]");
+  if (cancel) {
+    const left = parseFloat(button.style.marginLeft),
+      width = button.getBoundingClientRect().width,
+      cancelWidth = cancel.getBoundingClientRect().width;
+    let cancelLeft = left + width + 8,
+      stacked = false;
+    if (cancelLeft + cancelWidth > bounds.width) {
+      if (left >= cancelWidth + 8) cancelLeft = left - cancelWidth - 8;
+      else {
+        cancelLeft = Math.max(0, Math.min(left, bounds.width - cancelWidth));
+        stacked = true;
+      }
+    }
+    cancel.style.left = cancelLeft + "px";
+    cancel.style.top = stacked ? button.offsetHeight + 8 + "px" : "0";
+    row.style.paddingBottom = stacked ? cancel.offsetHeight + 8 + "px" : "";
+  }
 }
 function positionConfirmations() {
   if (view !== "activity") return;
@@ -599,6 +666,8 @@ function requireCompletedActivity() {
   return false;
 }
 function selectChoice(i, j) {
+  const owner = activeConfirmation(pending);
+  if (owner !== null && owner !== i) return;
   if (remainingAnswer(session.c, session.attempts, i) !== null) return;
   navigationCursor = i;
   if (prefs.confirm) {
@@ -613,9 +682,12 @@ function selectChoice(i, j) {
     row.hidden = false;
     row.querySelector("button").textContent = "Confirm " + letters[j];
     positionConfirm(i);
+    syncConfirmationLock();
   } else commitChoice(i, j);
 }
 function commitChoice(i, j) {
+  const owner = activeConfirmation(pending);
+  if (owner !== null && owner !== i) return;
   const { c, attempts } = session;
   if (
     !Number.isInteger(j) ||

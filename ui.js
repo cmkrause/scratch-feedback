@@ -18,3 +18,10 @@ export function confirmationLeft(
     Math.min(desired, Math.max(0, containerWidth - buttonWidth)),
   );
 }
+
+export function activeConfirmation(pending) {
+  const key = Object.keys(pending).find((key) =>
+    Number.isInteger(pending[key]),
+  );
+  return key === undefined ? null : Number(key);
+}
