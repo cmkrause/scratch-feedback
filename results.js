@@ -10,10 +10,10 @@ import {
   rowScore,
   totalScore,
   maximum,
-} from "./core.js?v=1.5.0";
+} from "./core.js?v=1.6.0";
 
 export const RESULTS_FORMAT = "scratch-feedback-results";
-export const RESULTS_SCHEMA_VERSION = 1;
+export const RESULTS_SCHEMA_VERSION = 2;
 export const RESULTS_ATTACHMENT_NAME = "scratch-feedback-results.json";
 
 // Snapshot before awaiting anything so the PDF and attachment describe the same state.
@@ -60,32 +60,17 @@ export async function buildResults(
       url: url.href,
       configurationHash,
       title: c.title,
-      description: c.description,
-      startNumber: c.startNumber,
-      questionCount: c.answers.length,
-      choiceCount: c.choiceCount,
       pointsByAttempt: [...c.points],
     },
     summary: {
-      complete: true,
-      completedQuestionCount: c.answers.length,
       pointsEarned: totalScore(c, attempts),
       pointsPossible: maximum(c),
     },
-    questions: c.answers.map((answer, i) => ({
+    questions: c.answers.map((_, i) => ({
       number: c.startNumber + i,
-      attempts: attempts[i].map((a, j) => ({
-        attempt: j + 1,
-        choice: letters[a],
-        correct: a === answer,
-        source:
-          automatic.has(i) && j === attempts[i].length - 1
-            ? "automatic"
-            : "student",
-      })),
+      attempts: attempts[i].map((choice) => letters[choice]),
       automaticReveal: automatic.has(i),
       pointsEarned: rowScore(c, attempts, i),
-      pointsPossible: c.points[0],
     })),
   };
 }

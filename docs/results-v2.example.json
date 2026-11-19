@@ -1,0 +1,51 @@
+{
+  "format": "scratch-feedback-results",
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-18T20:00:00.000Z",
+  "mode": "activity",
+  "activity": {
+    "url": "https://cmkrause.github.io/scratch-feedback/#/activity/AQGvdBv3waJltfyrLFEjo8Yl5vwtKAsiz3zZMCGZ1yPYHI46TYLRA9b-D5F03QOC_j0jJdTzG9O6ZFqkwecWJl3KKUP2KeI5HR0XT84k3ikZc6M1uTOv_2PeFpP14MB_mz4HST2JhG77wIAIH5nkDZvgKO60DXukKUwT9sucOo7l-E-d4HYay43807IFoRZe4lw4nmlKbt0Sx9k87t_qFSDzLnFGAa8RL8ariPoEtWpJiHg33dvzrliRedCVH4CK2WDeq7eQa6_Tk_I4gZJkU6byS5R6-kZkLAeumm-YSTmH7J9ZJ0Tb8Ic-",
+    "configurationHash": "ad36a0fc585f1bbe3d78cacd9eb1c2fc0ee7480f3275ae5206144f5c721e2aa0",
+    "title": "Unit 3 Group Exam",
+    "pointsByAttempt": [
+      6,
+      2,
+      1,
+      0
+    ]
+  },
+  "summary": {
+    "pointsEarned": 8,
+    "pointsPossible": 18
+  },
+  "questions": [
+    {
+      "number": 21,
+      "attempts": [
+        "A",
+        "B"
+      ],
+      "automaticReveal": false,
+      "pointsEarned": 2
+    },
+    {
+      "number": 22,
+      "attempts": [
+        "D"
+      ],
+      "automaticReveal": false,
+      "pointsEarned": 6
+    },
+    {
+      "number": 23,
+      "attempts": [
+        "B",
+        "C",
+        "D",
+        "A"
+      ],
+      "automaticReveal": true,
+      "pointsEarned": 0
+    }
+  ]
+}

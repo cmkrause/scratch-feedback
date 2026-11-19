@@ -15,9 +15,9 @@ import {
   restoreAutomaticReveals,
   nextUnfinished,
   fmt,
-} from "./core.js?v=1.5.0";
-import { confirmationLeft, activeConfirmation } from "./ui.js?v=1.5.0";
-import { exportPDF } from "./export.js?v=1.5.0";
+} from "./core.js?v=1.6.0";
+import { confirmationLeft, activeConfirmation } from "./ui.js?v=1.6.0";
+import { exportPDF } from "./export.js?v=1.6.0";
 const $ = (s) => document.querySelector(s),
   app = $("#app");
 const esc = (s) =>

@@ -29,8 +29,8 @@ Each link carries the complete configuration, so creating a new activity does no
 Each downloaded PDF includes the readable report and a UTF-8 JSON attachment named **`scratch-feedback-results.json`**. Both are generated from the same results snapshot. The attachment records the full activity link, full configuration SHA-256 hash, ordered attempts, automatic reveals, and numeric scores. Programs can extract it without OCR.
 
 - [Results format and importer guidance](docs/results-format.md)
-- [Version 1 JSON Schema](schemas/results-v1.schema.json)
-- [Complete example results JSON](docs/results-v1.example.json)
+- [Version 2 JSON Schema](schemas/results-v2.schema.json)
+- [Complete example results JSON](docs/results-v2.example.json)
 
 Keep the original downloaded PDF; printing/conversion can discard the attachment. Results are student-generated and unsigned. Neither the PDF nor embedded JSON is proof of an independently verified submission.
 

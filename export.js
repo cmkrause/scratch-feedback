@@ -1,5 +1,5 @@
-import { fmt, isComplete } from "./core.js?v=1.5.0";
-import { buildResults, RESULTS_ATTACHMENT_NAME } from "./results.js?v=1.5.0";
+import { fmt, isComplete } from "./core.js?v=1.6.0";
+import { buildResults, RESULTS_ATTACHMENT_NAME } from "./results.js?v=1.6.0";
 
 let fontPromise;
 async function fontBytes() {
@@ -22,7 +22,7 @@ function base64(bytes) {
 }
 
 // PDF text and the embedded file both come exclusively from this results snapshot.
-export async function createResultsPdf(results, { jsPDF, PDFDocument, font }) {
+export async function createResultsPdf(results, { jsPDF, PDFDocument, font, description = "" }) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.addFileToVFS("Atkinson.ttf", base64(font));
   doc.addFont("Atkinson.ttf", "Atkinson", "normal");
@@ -60,20 +60,20 @@ export async function createResultsPdf(results, { jsPDF, PDFDocument, font }) {
     `Total score: ${fmt(results.summary.pointsEarned)} / ${fmt(results.summary.pointsPossible)}`,
     16,
   );
-  if (results.activity.description) text(results.activity.description, 10, 70);
+  if (description) text(description, 10, 70);
   y += 3;
   for (const row of results.questions) {
     const attempts = row.attempts
       .map(
-        (a) =>
-          `${a.choice} (${a.correct ? (a.source === "automatic" ? "Correct, automatic reveal" : "Correct") : "Incorrect"})`,
+        (choice, i) =>
+          `${choice} (${i === row.attempts.length - 1 ? (row.automaticReveal ? "Correct, automatic reveal" : "Correct") : "Incorrect"})`,
       )
       .join(" > ");
     doc.setFontSize(11);
     const height = doc.splitTextToSize(attempts, width - 4).length * 6 + 19;
     if (y + height > bottom) newPage();
     text(
-      `Question ${row.number}    ${fmt(row.pointsEarned)} / ${fmt(row.pointsPossible)} points`,
+      `Question ${row.number}    ${fmt(row.pointsEarned)} / ${fmt(results.activity.pointsByAttempt[0])} points`,
       12,
     );
     text(attempts, 11);
@@ -105,7 +105,7 @@ export async function createResultsPdf(results, { jsPDF, PDFDocument, font }) {
     {
       mimeType: "application/json",
       description:
-        "Machine-readable Scratch Feedback results, schema version 1",
+        `Machine-readable Scratch Feedback results, schema version ${results.schemaVersion}`,
       creationDate: date,
       modificationDate: date,
     },
@@ -115,6 +115,7 @@ export async function createResultsPdf(results, { jsPDF, PDFDocument, font }) {
 export async function exportPDF(session) {
   if (!isComplete(session.c, session.attempts))
     throw Error("Complete every question before downloading results.");
+  const description = session.c.description.trim();
   const results = await buildResults(session, { baseUrl: location.href });
   if (!window.jspdf || !window.PDFLib)
     throw Error("PDF libraries unavailable. Reload and try again.");
@@ -122,6 +123,7 @@ export async function exportPDF(session) {
     jsPDF: window.jspdf.jsPDF,
     PDFDocument: window.PDFLib.PDFDocument,
     font: await fontBytes(),
+    description,
   });
   const url = URL.createObjectURL(
     new Blob([bytes], { type: "application/pdf" }),

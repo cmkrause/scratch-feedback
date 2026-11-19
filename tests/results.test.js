@@ -12,7 +12,7 @@ import { createResultsPdf } from "../export.js";
 import { encode, decode, activityId } from "../core.js";
 const schema = JSON.parse(
   await fs.readFile(
-    new URL("../schemas/results-v1.schema.json", import.meta.url),
+    new URL("../schemas/results-v2.schema.json", import.meta.url),
     "utf8",
   ),
 );
@@ -54,16 +54,11 @@ test("complete results match schema, preserve full payload/hash, and describe or
   assert.equal(r.activity.configurationHash, await activityId(session.c));
   assert.equal(r.activity.configurationHash.length, 64);
   assert.deepEqual(r.summary, {
-    complete: true,
-    completedQuestionCount: 3,
     pointsEarned: 8,
     pointsPossible: 18,
   });
-  assert.deepEqual(r.questions[0].attempts, [
-    { attempt: 1, choice: "A", correct: false, source: "student" },
-    { attempt: 2, choice: "B", correct: true, source: "student" },
-  ]);
-  assert.equal(r.questions[2].attempts.at(-1).source, "automatic");
+  assert.deepEqual(r.questions[0].attempts, ["A", "B"]);
+  assert.deepEqual(r.questions[2].attempts, ["B", "C", "D", "A"]);
   assert.equal(r.questions[2].automaticReveal, true);
   assert.equal(r.questions[2].pointsEarned, 0);
   assert.equal("id" in r.activity, false);
@@ -93,7 +88,7 @@ test("results are snapshotted before async work; tentative state is not exported
   session.autoRevealed.clear();
   const r = await promise;
   assert.equal(r.activity.title, "Results check");
-  assert.equal(r.questions[0].attempts[0].choice, "A");
+  assert.equal(r.questions[0].attempts[0], "A");
   assert.equal(r.questions[2].automaticReveal, true);
   assert.equal(r.activity.configurationHash, originalHash);
   assert.equal("pending" in r, false);
@@ -117,14 +112,14 @@ test("incomplete exports, mismatched links, invalid dates, and unsafe base URLs 
     /HTTP or HTTPS/,
   );
 });
-test("schema rejects unknown versions, short hashes, names, invalid choice labels and automatic incorrect answers", async () => {
+test("schema rejects unknown versions, short hashes, names, invalid choice labels and repeated choices", async () => {
   const original = await buildResults(await fixture(), options);
   for (const change of [
-    (r) => (r.schemaVersion = 2),
+    (r) => (r.schemaVersion = 3),
     (r) => (r.activity.configurationHash = "abc123"),
     (r) => (r.studentName = "Name"),
-    (r) => (r.questions[0].attempts[0].choice = "Z"),
-    (r) => (r.questions[0].attempts[0].source = "automatic"),
+    (r) => (r.questions[0].attempts[0] = "Z"),
+    (r) => (r.questions[0].attempts = ["A", "A"]),
   ]) {
     const r = structuredClone(original);
     change(r);
@@ -134,7 +129,7 @@ test("schema rejects unknown versions, short hashes, names, invalid choice label
 test("documented example validates and its payload matches its hash", async () => {
   const r = JSON.parse(
     await fs.readFile(
-      new URL("../docs/results-v1.example.json", import.meta.url),
+      new URL("../docs/results-v2.example.json", import.meta.url),
       "utf8",
     ),
   );
